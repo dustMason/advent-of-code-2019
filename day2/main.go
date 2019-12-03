@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -16,24 +17,24 @@ func main() {
 	}
 
 	// part 1: modify the program:
-	// codes[1] = 12
-	// codes[2] = 2
+	part1 := runProgram(12, 2, codes)
+	fmt.Println(part1)
 
 	// part 2: search combinations of 1 and 2 to get magic number:
 	answer := 19690720
-
 	for a := 0; a < 100; a += 1 {
 		for b := 0; b < 100; b += 1 {
-			newCodes := append([]int{}, codes...)
-			ans := runProgram(a, b, newCodes)
+			ans := runProgram(a, b, codes)
 			if ans == answer {
-				panic(100 * a + b)
+			  fmt.Println(100 * a + b)
+				panic("found")
 			}
 		}
 	}
 }
 
-func runProgram(a int, b int, codes []int) int {
+func runProgram(a int, b int, program []int) int {
+  codes := append([]int{}, program...)
 	pointer := 0
 	codes[1] = a
 	codes[2] = b
