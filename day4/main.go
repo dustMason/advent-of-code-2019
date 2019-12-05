@@ -13,7 +13,7 @@ func main() {
 
 	// parts 1 and 2
 	for i := min; i < max; i += 1 {
-		s := IntToSlice(i, []int{})
+		s := intToSlice(i, []int{})
 		if !sort.IntsAreSorted(s) {
 			continue
 		}
@@ -34,11 +34,11 @@ func main() {
 	fmt.Println(count2)
 }
 
-func IntToSlice(n int, sequence []int) []int {
+func intToSlice(n int, sequence []int) []int {
 	if n != 0 {
 		i := n % 10
 		sequence = append([]int{i}, sequence...)
-		return IntToSlice(n/10, sequence)
+		return intToSlice(n/10, sequence)
 	}
 	return sequence
 }
