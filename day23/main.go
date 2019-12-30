@@ -2,58 +2,115 @@ package main
 
 import (
 	"fmt"
-	"sync"
 )
 
-type packet [3]int64 // 0: addr, 1: X, 2: Y
-
-type machine struct {
-	in chan int64
+type vec struct {
+	x, y int64
 }
 
-type router struct {
-	machines []machine
-	bus      chan packet
-}
-
-func (r router) route() {
-	for {
-		packet := <-r.bus
-		addr := packet[0]
-		fmt.Printf("[%v] <- %v %v\n", addr, packet[1], packet[2])
-		r.machines[int(addr)].in <- packet[1]
-		r.machines[int(addr)].in <- packet[2]
-	}
-}
-
-func (r router) run(codes []int64) {
-	var wg sync.WaitGroup
-	go r.route()
-	for addr, machine := range r.machines {
-		wg.Add(1)
-		go RunProgram(codes, machine.in, r.bus, &wg, 500000)
-		machine.in <- int64(addr)
-	}
-	wg.Wait()
-}
-
-func newRouter() router {
-	r := router{
-		machines: make([]machine, 50),
-		bus:      make(chan packet),
-	}
+func makeMachines(codes []int64) []chan int64 {
+	out := make([]chan int64, 50)
 	for i := 0; i < 50; i++ {
-		r.machines[i] = machine{
-			in: make(chan int64),
-		}
+		c := make(chan int64)
+		go RunProgram(codes, c, 500000)
+		c <- int64(i)
+		out[i] = c
 	}
-	return r
+	return out
 }
 
 func main() {
-	codes := LoadIntcode("day23.txt")
-	newRouter().run(codes)
+	// part1()
+	part2()
+}
 
-	// 8668 is too low
-	// 2251799813563177 is too high
+func part1() {
+	codes := LoadIntcode("day23.txt")
+	machines := makeMachines(codes)
+	queue := make([][]vec, len(machines))
+	for i := 0; i < len(machines); i++ {
+		queue[i] = make([]vec, 0)
+	}
+
+	for {
+		for i, machine := range machines {
+			var packet vec
+			if len(queue[i]) > 0 {
+				packet = queue[i][0]
+			} else {
+				packet = vec{-1, -1}
+			}
+
+			select {
+			case dest := <-machine:
+				x := <-machine
+				y := <-machine
+				if dest == 255 {
+					fmt.Println(y)
+					return
+				}
+				queue[dest] = append(queue[dest], vec{x, y})
+			case machine <- packet.x:
+				if packet.x != -1 {
+					machine <- packet.y
+					queue[i] = queue[i][1:]
+				}
+			}
+		}
+	}
+}
+
+func part2() {
+	codes := LoadIntcode("day23.txt")
+	machines := makeMachines(codes)
+	var nat vec
+	queue := make([][]vec, len(machines))
+	emptyReceiveCounts := make([]int, len(machines))
+	for i := 0; i < len(machines); i++ {
+		queue[i] = make([]vec, 0)
+	}
+
+	for {
+		for i, machine := range machines {
+			var packet vec
+
+			if len(queue[i]) > 0 {
+				packet = queue[i][0]
+			} else {
+				packet = vec{-1, -1}
+			}
+
+			select {
+			case dest := <-machine:
+				x := <-machine
+				y := <-machine
+				if dest == 255 {
+					nat = vec{x, y}
+				} else {
+					queue[dest] = append(queue[dest], vec{x, y})
+				}
+			case machine <- packet.x:
+				if packet.x != -1 {
+					machine <- packet.y
+					queue[i] = queue[i][1:]
+					emptyReceiveCounts[i] = 0
+				} else {
+					emptyReceiveCounts[i]++
+				}
+			}
+		}
+
+		idle := true
+		for _, count := range emptyReceiveCounts {
+			if count <= 2 {
+				idle = false
+				break
+			}
+		}
+		if idle {
+			machines[0] <- nat.x
+			machines[0] <- nat.y
+			fmt.Println(nat)
+		}
+	}
 }

@@ -4,17 +4,13 @@ import (
 	"io/ioutil"
 	"strconv"
 	"strings"
-	"sync"
 )
 
-func RunProgram(program []int64, input <-chan int64, output chan<- packet, done *sync.WaitGroup, memSize int) {
+func RunProgram(program []int64, channel chan int64, memSize int) {
 	codes := make([]int64, memSize)
 	copy(codes, program)
 	pointer := int64(0)
 	relativeBase := int64(0)
-
-	gotAddress := false
-	buffer := []int64{}
 
 	for {
 		cmd := codes[pointer]
@@ -48,7 +44,7 @@ func RunProgram(program []int64, input <-chan int64, output chan<- packet, done 
 
 		if opcode == 99 {
 			// done <- true
-			done.Done()
+			// done.Done()
 			return
 		} else if opcode == 1 {
 			a, b := read(1), read(2)
@@ -59,30 +55,11 @@ func RunProgram(program []int64, input <-chan int64, output chan<- packet, done 
 			write(3, a*b)
 			pointer += 4
 		} else if opcode == 3 { // STDIN
-
-			var msg int64
-			if !gotAddress {
-				msg = <-input
-				gotAddress = true
-			} else {
-				select {
-				case msg = <-input:
-					// fmt.Printf("%v ", msg)
-				default:
-					msg = -1
-				}
-			}
-
-			write(1, msg)
+			write(1, <-channel)
 			pointer += 2
 		} else if opcode == 4 { // STDOUT
 			a := read(1)
-			buffer = append(buffer, a)
-			if len(buffer) == 3 {
-				p := packet{buffer[0], buffer[1], buffer[2]}
-				output <- p
-				buffer = []int64{}
-			}
+			channel <- a
 			pointer += 2
 		} else if opcode == 5 { // jump-if-true
 			a, b := read(1), read(2)
